@@ -21,6 +21,7 @@ A set of Nix functions that generate CMakeLists.txt and *.cmake files for C++ CM
 
 - All functionality is maintained by unit tests implemented in Nix
 - These tests are provided as a target that is lazily evaluated in the flake
+- While implementing these features, all are written by first writing a failing unit test that goes into the canon of tests.
 
 ### Conventions
 
