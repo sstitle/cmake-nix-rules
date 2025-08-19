@@ -91,7 +91,9 @@ in [
       let 
         modules = [ (builtins.head mockModules) ];  # no-deps module
         result = cmake-rules.topologicalSort modules;
-      in assert (builtins.length result == 1) "Should return single module";
+      in 
+        assert (builtins.length result == 1) "Should return single module";
+        "PASS: single module topological sort works";
   }
   
   {
@@ -102,12 +104,18 @@ in [
         modules = mockModules;
         result = cmake-rules.topologicalSort modules;
         names = map (m: m.name) result;
+        # Check all assertions
+        lengthCheck = assert (builtins.length result == 3) "Should return all 3 modules"; true;
+        result1 = assertEqual "no-deps" (builtins.head names) "no-deps should be first";
+        result2 = assertEqual "single-dep" (builtins.elemAt names 1) "single-dep should be second";
+        result3 = assertEqual "chain-dep" (builtins.elemAt names 2) "chain-dep should be third";
       in 
-        # no-deps should come first, then single-dep, then chain-dep
-        assert (builtins.length result == 3) "Should return all 3 modules";
-        assertEqual "no-deps" (builtins.head names) "no-deps should be first";
-        assertEqual "single-dep" (builtins.elemAt names 1) "single-dep should be second";
-        assertEqual "chain-dep" (builtins.elemAt names 2) "chain-dep should be third";
+        if lengthCheck &&
+           result1 == "PASS no-deps should be first" &&
+           result2 == "PASS single-dep should be second" &&
+           result3 == "PASS chain-dep should be third"
+        then "PASS: dependency chain sorted correctly"
+        else throw "One or more topological sort assertions failed";
   }
   
   {
@@ -137,10 +145,15 @@ in [
         noDeps = getDependencies (builtins.head mockModules);
         singleDep = getDependencies (builtins.elemAt mockModules 1);
         chainDep = getDependencies (builtins.elemAt mockModules 2);
+        result1 = assertEqual [] noDeps "no-deps should have no dependencies";
+        result2 = assertEqual ["no-deps"] singleDep "single-dep should depend on no-deps";
+        result3 = assertEqual ["single-dep"] chainDep "chain-dep should depend on single-dep";
       in
-        assertEqual [] noDeps "no-deps should have no dependencies";
-        assertEqual ["no-deps"] singleDep "single-dep should depend on no-deps";
-        assertEqual ["single-dep"] chainDep "chain-dep should depend on single-dep";
+        if result1 == "PASS no-deps should have no dependencies" &&
+           result2 == "PASS single-dep should depend on no-deps" &&
+           result3 == "PASS chain-dep should depend on single-dep"
+        then "PASS: dependency extraction works correctly"
+        else throw "One or more dependency extraction assertions failed";
   }
   
   {
@@ -165,9 +178,12 @@ in [
           name = m.name;
           value = getDependencies m;
         }) exampleModules);
-        
+        result1 = assertEqual [] (moduleDepMap.logging or []) "logging should have no dependencies";
+        result2 = assertEqual ["logging"] (moduleDepMap.math-utils or []) "math-utils should depend on logging";
       in
-        assertEqual [] (moduleDepMap.logging or []) "logging should have no dependencies";
-        assertEqual ["logging"] (moduleDepMap.math-utils or []) "math-utils should depend on logging";
+        if result1 == "PASS logging should have no dependencies" &&
+           result2 == "PASS math-utils should depend on logging"
+        then "PASS: real modules dependency extraction works"
+        else throw "One or more real module dependency assertions failed";
   }
 ]

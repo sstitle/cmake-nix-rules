@@ -12,10 +12,9 @@ in [
       let 
         lib = mkLibrary { name = "test-lib"; type = "static"; };
       in
-        assertEqual "test-lib" lib.name "Library name should be preserved";
-        assertEqual "static" lib.type "Library type should be static";
-        assertEqual "library" lib.targetType "Target type should be library";
-        true;
+        if lib.name == "test-lib" && lib.type == "static" && lib.targetType == "library"
+        then "PASS: mkLibrary basic properties correct"
+        else throw "mkLibrary properties wrong: name=${lib.name}, type=${lib.type}, targetType=${lib.targetType}";
   }
   
   {
@@ -42,11 +41,17 @@ in [
           name = "test-exe"; 
           entrypoint = "main.cpp"; 
         };
+        result1 = assertEqual "test-exe" exe.name "Executable name should be preserved";
+        result2 = assertEqual "main.cpp" exe.entrypoint "Entrypoint should be preserved";
+        result3 = assertEqual [] exe.sources "Default sources should be empty";
+        result4 = assertEqual "executable" exe.targetType "Target type should be executable";
       in
-        assertEqual "test-exe" exe.name "Executable name should be preserved";
-        assertEqual "main.cpp" exe.entrypoint "Entrypoint should be preserved";
-        assertEqual [] exe.sources "Default sources should be empty";
-        assertEqual "executable" exe.targetType "Target type should be executable";
+        if result1 == "PASS Executable name should be preserved" && 
+           result2 == "PASS Entrypoint should be preserved" &&
+           result3 == "PASS Default sources should be empty" &&
+           result4 == "PASS Target type should be executable"
+        then "PASS: mkExecutable basic properties correct"
+        else throw "One or more assertions failed";
   }
   
   {
@@ -107,6 +112,7 @@ in [
         assert (builtins.length modules >= 2) "Should discover at least 2 modules";
         assert (builtins.elem "logging" moduleNames) "Should discover logging module";
         assert (builtins.elem "math-utils" moduleNames) "Should discover math-utils module";
+        "PASS: discoverModules works correctly";
   }
   
   {
@@ -114,11 +120,18 @@ in [
     fn = _:
       let 
         config = cmake-rules.defaultBuildConfig;
+        result1 = assertEqual "debug" config.buildType "Default build type should be debug";
+        result2 = assertEqual "gcc" config.compiler "Default compiler should be gcc";
+        result3 = assertEqual "20" config.cppStandard "Default C++ standard should be 20";
+        result4 = assertEqual "ninja" config.generator "Default generator should be ninja";
+        result5 = assertEqual "cmake" config.buildSystem "Default build system should be cmake";
       in
-        assertEqual "debug" config.buildType "Default build type should be debug";
-        assertEqual "gcc" config.compiler "Default compiler should be gcc";
-        assertEqual "20" config.cppStandard "Default C++ standard should be 20";
-        assertEqual "ninja" config.generator "Default generator should be ninja";
-        assertEqual "cmake" config.buildSystem "Default build system should be cmake";
+        if result1 == "PASS Default build type should be debug" &&
+           result2 == "PASS Default compiler should be gcc" &&
+           result3 == "PASS Default C++ standard should be 20" &&
+           result4 == "PASS Default generator should be ninja" &&
+           result5 == "PASS Default build system should be cmake"
+        then "PASS: buildConfig defaults correct"
+        else throw "One or more buildConfig assertions failed";
   }
 ]

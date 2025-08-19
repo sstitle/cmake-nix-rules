@@ -126,9 +126,14 @@ in [
           then dep.pkg 
           else dep
         ) mixedDeps;
+        result1 = assertEqual 2 (builtins.length extractedPkgs) "Should extract both packages";
+        result2 = assertEqual mockSpdlog (builtins.head extractedPkgs) "Should extract simple format package";
+        result3 = assertEqual mockEigen (builtins.elemAt extractedPkgs 1) "Should extract detailed format package";
       in
-        assertEqual 2 (builtins.length extractedPkgs) "Should extract both packages";
-        assertEqual mockSpdlog (builtins.head extractedPkgs) "Should extract simple format package";
-        assertEqual mockEigen (builtins.elemAt extractedPkgs 1) "Should extract detailed format package";
+        if result1 == "PASS Should extract both packages" &&
+           result2 == "PASS Should extract simple format package" &&
+           result3 == "PASS Should extract detailed format package"
+        then "PASS: build inputs extraction works correctly"
+        else throw "One or more build inputs extraction assertions failed";
   }
 ]

@@ -5,7 +5,7 @@ let
   inherit (pkgs) lib;
 in rec {
   # Discover modules from a directory pattern
-  discoverModules = modulesDir:
+  discoverModules = cmakeRules: modulesDir:
     let
       # Find all default.nix files in subdirectories
       moduleEntries = builtins.readDir modulesDir;
@@ -16,11 +16,22 @@ in rec {
         builtins.pathExists "${modulesDir}/${name}/default.nix"
       ) moduleNames;
       
-    in map (name: {
-      inherit name;
-      path = "${modulesDir}/${name}";
-      nixFile = "${modulesDir}/${name}/default.nix";
-    }) validModules;
+    in map (name: 
+      let
+        modulePath = "${modulesDir}/${name}";
+        # Import the module to read its configuration
+        moduleConfig = import "${modulePath}/default.nix" { 
+          inherit pkgs; 
+          cmake-nix-rules = cmakeRules; 
+        };
+      in {
+        inherit name;
+        path = modulePath;
+        nixFile = "${modulePath}/default.nix";
+        # Extract dependencies from the module definition
+        dependencies = moduleConfig.passthru.moduleDependencies or [];
+      }
+    ) validModules;
   
   # Aggregate compile_commands.json from multiple modules
   aggregateCompileCommands = modules: workspaceRoot:

@@ -9,12 +9,13 @@ let
   cmakeGen = import ./cmake-generation.nix { inherit pkgs; };
   utils = import ./utils.nix { inherit pkgs; };
 
-in {
+in rec {
   # Main API functions
   inherit mkModule mkLibrary mkExecutable;
   
-  # Utility functions
-  inherit (utils) discoverModules aggregateCompileCommands topologicalSort resolveModuleDependencies;
+  # Utility functions - discoverModules needs access to the main functions
+  discoverModules = utils.discoverModules { inherit mkModule mkLibrary mkExecutable; };
+  inherit (utils) aggregateCompileCommands topologicalSort resolveModuleDependencies;
   
   # CMake generation utilities
   inherit (cmakeGen) generateRootCMakeLists generateModuleCMakeLists;

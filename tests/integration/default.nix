@@ -25,6 +25,7 @@ in [
         assert (builtins.isString content) "CMake content should be a string";
         assert (builtins.match ".*project\\(test-module\\).*" content != null) "Should contain project declaration";
         assert (builtins.match ".*add_library\\(test-lib STATIC.*" content != null) "Should contain library declaration";
+        "PASS: basic CMake generation works";
   }
   
   {
@@ -46,6 +47,7 @@ in [
         content = builtins.readFile cmakeContent;
       in
         assert (builtins.match ".*find_package\\(eigen REQUIRED\\).*" content != null) "Should contain find_package for eigen";
+        "PASS: external dependency CMake generation works";
   }
   
   {
@@ -73,6 +75,7 @@ in [
         assert (builtins.match ".*include\\(FetchContent\\).*" content != null) "Should include FetchContent";
         assert (builtins.match ".*FetchContent_Declare\\(nlohmann-json.*" content != null) "Should declare nlohmann-json";
         assert (builtins.match ".*GIT_REPOSITORY https://github.com/nlohmann/json.git.*" content != null) "Should include git repository";
+        "PASS: FetchContent CMake generation works";
   }
   
   {
@@ -96,6 +99,7 @@ in [
         content = builtins.readFile cmakeContent;
       in
         assert (builtins.match ".*add_executable\\(test-exe main.cpp\\).*" content != null) "Should contain executable declaration";
+        "PASS: executable CMake generation works";
   }
   
   {
@@ -118,6 +122,7 @@ in [
       in
         # The generator is set during cmake invocation, not in CMakeLists.txt
         assert (builtins.isString content) "CMake content should be generated";
+        "PASS: ninja generator config works";
   }
   
   {
@@ -144,5 +149,6 @@ in [
       in
         assert (builtins.match ".*set\\(CMAKE_CXX_STANDARD 23\\).*" content != null) "Should use custom C++ standard";
         assert (builtins.match ".*CMAKE_BUILD_TYPE release.*" content != null) "Should use custom build type";
+        "PASS: build config inheritance works";
   }
 ]

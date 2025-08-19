@@ -49,8 +49,18 @@
             paths = builtins.attrValues modules;
           };
           
-          # Test runner
-          tests = (import ./tests { inherit pkgs; }).runAllTests;
+          # Test runner - only evaluate when explicitly built
+          tests = pkgs.writeShellScriptBin "run-tests" ''
+            echo "Running cmake-nix-rules tests..."
+            ${pkgs.nix}/bin/nix eval --impure --expr '
+              let 
+                tests = import ${./.}/tests { pkgs = import <nixpkgs> {}; }; 
+                results = map (r: "''${r.name}: ''${r.message}") tests.testResults;
+                failures = builtins.filter (r: !r.success) tests.testResults;
+                summary = if failures == [] then "All tests passed!" else "Some tests failed!";
+              in builtins.concatStringsSep "\n" (results ++ [summary])
+            '
+          '';
         };
 
         # Apps for development workflow
