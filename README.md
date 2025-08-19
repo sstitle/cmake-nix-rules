@@ -17,6 +17,11 @@ A set of Nix functions that generate CMakeLists.txt and *.cmake files for C++ CM
 - **Versioned API**: Version-namespaced implementation (v1, v2, etc.) to enable breaking changes while maintaining backward compatibility
 - **Convention over Configuration**: Standardized directory layout with implicit include paths, but explicit executable entrypoints
 
+### Test-Driven Development
+
+- All functionality is maintained by unit tests implemented in Nix
+- These tests are provided as a target that is lazily evaluated in the flake
+
 ### Conventions
 
 In order to facilitate simple rules, we expect certain conventions
