@@ -6,22 +6,18 @@ let
   
   # Test framework utilities
   testUtils = {
-    # Assert that a condition is true
-    assert = condition: message:
-      if condition then true
-      else throw "Test failed: ${message}";
-    
     # Assert that two values are equal
     assertEqual = expected: actual: message:
-      testUtils.assert (expected == actual) 
-        "${message}: expected ${builtins.toJSON expected}, got ${builtins.toJSON actual}";
+      assert (expected == actual) || throw "${message}: expected ${builtins.toJSON expected}, got ${builtins.toJSON actual}"; 
+      true;
     
     # Assert that a function throws an error
     assertThrows = fn: message:
       let
         result = builtins.tryEval (fn {});
-      in testUtils.assert (!result.success) 
-         "${message}: expected function to throw, but it succeeded with ${builtins.toJSON result.value}";
+      in 
+        assert (!result.success) || throw "${message}: expected function to throw, but it succeeded with ${builtins.toJSON result.value}";
+        true;
     
     # Run a test and catch any errors
     runTest = name: testFn:
@@ -40,9 +36,11 @@ let
   integrationTests = import ./integration { inherit pkgs cmake-rules testUtils; };
   dependencyTests = import ./dependency-resolution { inherit pkgs cmake-rules testUtils; };
   externalDepsTests = import ./external-deps { inherit pkgs cmake-rules testUtils; };
+  buildTests = import ./build-tests { inherit pkgs cmake-rules testUtils; };
+  internalDepsTests = import ./internal-deps { inherit pkgs cmake-rules testUtils; };
   
   # Collect all tests
-  allTests = unitTests ++ integrationTests ++ dependencyTests ++ externalDepsTests;
+  allTests = unitTests ++ integrationTests ++ dependencyTests ++ externalDepsTests ++ buildTests ++ internalDepsTests;
   
   # Run all tests and summarize results
   testResults = map (test: testUtils.runTest test.name test.fn) allTests;
@@ -97,5 +95,5 @@ in {
   '';
   
   # Individual test categories
-  inherit unitTests integrationTests dependencyTests externalDepsTests;
+  inherit unitTests integrationTests dependencyTests externalDepsTests buildTests internalDepsTests;
 }

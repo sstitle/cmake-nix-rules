@@ -2,7 +2,7 @@
 { pkgs, cmake-rules, testUtils }:
 
 let
-  inherit (testUtils) assert assertEqual assertThrows;
+  inherit (testUtils) assertEqual assertThrows;
   
   # Mock module data for testing
   mockModules = [
@@ -104,9 +104,9 @@ in [
         names = map (m: m.name) result;
       in 
         # no-deps should come first, then single-dep, then chain-dep
-        assert (builtins.length result == 3) "Should return all 3 modules" &&
-        assertEqual "no-deps" (builtins.head names) "no-deps should be first" &&
-        assertEqual "single-dep" (builtins.elemAt names 1) "single-dep should be second" &&
+        assert (builtins.length result == 3) "Should return all 3 modules";
+        assertEqual "no-deps" (builtins.head names) "no-deps should be first";
+        assertEqual "single-dep" (builtins.elemAt names 1) "single-dep should be second";
         assertEqual "chain-dep" (builtins.elemAt names 2) "chain-dep should be third";
   }
   
@@ -138,8 +138,8 @@ in [
         singleDep = getDependencies (builtins.elemAt mockModules 1);
         chainDep = getDependencies (builtins.elemAt mockModules 2);
       in
-        assertEqual [] noDeps "no-deps should have no dependencies" &&
-        assertEqual ["no-deps"] singleDep "single-dep should depend on no-deps" &&
+        assertEqual [] noDeps "no-deps should have no dependencies";
+        assertEqual ["no-deps"] singleDep "single-dep should depend on no-deps";
         assertEqual ["single-dep"] chainDep "chain-dep should depend on single-dep";
   }
   
@@ -167,7 +167,7 @@ in [
         }) exampleModules);
         
       in
-        assertEqual [] (moduleDepMap.logging or []) "logging should have no dependencies" &&
+        assertEqual [] (moduleDepMap.logging or []) "logging should have no dependencies";
         assertEqual ["logging"] (moduleDepMap.math-utils or []) "math-utils should depend on logging";
   }
 ]

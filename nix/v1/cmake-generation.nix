@@ -5,7 +5,7 @@ let
   inherit (pkgs) lib;
   
   # Generate CMakeLists.txt for a module
-  generateModuleCMakeLists = { name, targets, dependencies ? [], externalDeps ? [], fetchContentDeps ? [], buildConfig }:
+  generateModuleCMakeLists = { name, targets, dependencies ? [], externalDeps ? [], fetchContentDeps ? [], buildConfig, src }:
     let
       # Helper functions for CMake generation
       sanitizerFlags = lib.optionals (buildConfig.features.sanitizers != []) [
@@ -29,21 +29,26 @@ let
         let
           libType = if target.type == "static" then "STATIC" else "SHARED";
           # Discover source files using Nix
-          sourceFiles = lib.filesystem.listFilesRecursive (src + "/src");
+          sourceFiles = if builtins.pathExists (src + "/src") then
+            lib.filesystem.listFilesRecursive (src + "/src")
+          else [];
           cppSources = builtins.filter (file: 
-            let ext = lib.strings.fileExtension (builtins.toString file);
-            in builtins.elem ext ["cpp" "cc" "cxx" "c++"]
+            let fileName = builtins.toString file;
+            in builtins.any (ext: lib.strings.hasSuffix ".${ext}" fileName) ["cpp" "cc" "cxx" "c++"]
           ) sourceFiles;
           relativeSources = map (file: 
             lib.strings.removePrefix (builtins.toString src + "/") (builtins.toString file)
           ) cppSources;
           
           # Discover header files using Nix  
-          headerFiles = lib.filesystem.listFilesRecursive (src + "/inc") ++ 
-                       lib.filesystem.listFilesRecursive (src + "/src");
+          headerFiles = (if builtins.pathExists (src + "/inc") then
+            lib.filesystem.listFilesRecursive (src + "/inc")
+          else []) ++ (if builtins.pathExists (src + "/src") then
+            lib.filesystem.listFilesRecursive (src + "/src")
+          else []);
           cppHeaders = builtins.filter (file:
-            let ext = lib.strings.fileExtension (builtins.toString file);
-            in builtins.elem ext ["hpp" "hh" "hxx" "h++" "h"]
+            let fileName = builtins.toString file;
+            in builtins.any (ext: lib.strings.hasSuffix ".${ext}" fileName) ["hpp" "hh" "hxx" "h++" "h"]
           ) headerFiles;
           relativeHeaders = map (file:
             lib.strings.removePrefix (builtins.toString src + "/") (builtins.toString file)
@@ -67,12 +72,32 @@ let
       
       generateExecutableTarget = targetName: target:
         let
-          additionalSources = if target.sources != [] then
+          # Discover executable sources using Nix
+          toolsFiles = if builtins.pathExists (src + "/tools") then
+            lib.filesystem.listFilesRecursive (src + "/tools")
+          else [];
+          cppSources = builtins.filter (file: 
+            let fileName = builtins.toString file;
+            in builtins.any (ext: lib.strings.hasSuffix ".${ext}" fileName) ["cpp" "cc" "cxx" "c++"]
+          ) toolsFiles;
+          # Filter to find the main source file for this executable
+          mainSource = if target ? entrypoint then
+            target.entrypoint
+          else
+            let 
+              matchingFiles = builtins.filter (file:
+                lib.strings.hasSuffix "${target.name}.cpp" (builtins.toString file)
+              ) cppSources;
+            in if matchingFiles != [] then
+              lib.strings.removePrefix (builtins.toString src + "/") (builtins.toString (builtins.head matchingFiles))
+            else "tools/${target.name}.cpp";  # fallback
+          
+          additionalSources = if target ? sources then
             lib.concatStringsSep " " target.sources
           else "";
         in ''
           # Executable: ${targetName}
-          add_executable(${target.name} ${target.entrypoint} ${additionalSources})
+          add_executable(${target.name} ${mainSource} ${additionalSources})
           target_include_directories(${target.name} PRIVATE inc src)
         '';
       
@@ -177,6 +202,18 @@ let
         in lib.concatStringsSep "\n" (lib.mapAttrsToList (execName: execTarget:
           lib.concatStringsSep "\n" (map (libName: "target_link_libraries(${execTarget.name} ${libName})") libraryNames)
         ) executables)}
+        
+        # Install headers for use by other modules
+        ${lib.concatStringsSep "\n" (lib.mapAttrsToList (targetName: target:
+          if target.targetType == "library" then ''
+            install(TARGETS ${target.name}
+              LIBRARY DESTINATION lib
+              ARCHIVE DESTINATION lib
+              PUBLIC_HEADER DESTINATION include
+            )
+            install(DIRECTORY inc/ DESTINATION include PATTERN "*")
+          '' else ""
+        ) targets)}
       '';
       
     in pkgs.writeText "CMakeLists.txt" cmakeContent;

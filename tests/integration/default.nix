@@ -2,7 +2,7 @@
 { pkgs, cmake-rules, testUtils }:
 
 let
-  inherit (testUtils) assert assertEqual;
+  inherit (testUtils) assertEqual;
 
 in [
   {
@@ -22,8 +22,8 @@ in [
         };
         content = builtins.readFile cmakeContent;
       in
-        assert (builtins.isString content) "CMake content should be a string" &&
-        assert (builtins.match ".*project\\(test-module\\).*" content != null) "Should contain project declaration" &&
+        assert (builtins.isString content) "CMake content should be a string";
+        assert (builtins.match ".*project\\(test-module\\).*" content != null) "Should contain project declaration";
         assert (builtins.match ".*add_library\\(test-lib STATIC.*" content != null) "Should contain library declaration";
   }
   
@@ -70,8 +70,8 @@ in [
         };
         content = builtins.readFile cmakeContent;
       in
-        assert (builtins.match ".*include\\(FetchContent\\).*" content != null) "Should include FetchContent" &&
-        assert (builtins.match ".*FetchContent_Declare\\(nlohmann-json.*" content != null) "Should declare nlohmann-json" &&
+        assert (builtins.match ".*include\\(FetchContent\\).*" content != null) "Should include FetchContent";
+        assert (builtins.match ".*FetchContent_Declare\\(nlohmann-json.*" content != null) "Should declare nlohmann-json";
         assert (builtins.match ".*GIT_REPOSITORY https://github.com/nlohmann/json.git.*" content != null) "Should include git repository";
   }
   
@@ -142,7 +142,7 @@ in [
         };
         content = builtins.readFile cmakeContent;
       in
-        assert (builtins.match ".*set\\(CMAKE_CXX_STANDARD 23\\).*" content != null) "Should use custom C++ standard" &&
+        assert (builtins.match ".*set\\(CMAKE_CXX_STANDARD 23\\).*" content != null) "Should use custom C++ standard";
         assert (builtins.match ".*CMAKE_BUILD_TYPE release.*" content != null) "Should use custom build type";
   }
 ]

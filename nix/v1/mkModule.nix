@@ -40,7 +40,7 @@ let
     
   # Generate CMakeLists.txt for this module
   moduleCMakeLists = cmakeGen.generateModuleCMakeLists {
-    inherit name targets externalDeps fetchContentDeps;
+    inherit name targets externalDeps fetchContentDeps src;
     dependencies = internalDeps;  # Pass resolved internal dependencies
     buildConfig = finalBuildConfig;
   };
