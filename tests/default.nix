@@ -18,6 +18,9 @@ let
       message = if result.success then result.value else "FAIL: ${builtins.toString result.value}";
     };
 
+  # Import additional test modules
+  buildTests = import ./build-tests { inherit pkgs cmake-rules; testUtils = { inherit assertEqual; }; };
+  
   # Core tests for our main functions
   tests = [
     {
@@ -104,7 +107,7 @@ let
           then "PASS: CMake generation includes external deps"
           else throw "CMake generation missing external deps";
     }
-  ];
+  ] ++ buildTests;  # Include build tests
   
   # Run all tests and collect results
   results = map (test: runTest test.name test.fn) tests;

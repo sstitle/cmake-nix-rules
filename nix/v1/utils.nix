@@ -172,7 +172,7 @@ in rec {
             };
             
             # Get dependencies for this module
-            moduleDeps = moduleNix.dependencies or [];
+            moduleDeps = moduleNix.passthru.moduleDependencies or [];
             
             # Resolve internal dependencies to built modules
             resolvedDeps = map (depName:

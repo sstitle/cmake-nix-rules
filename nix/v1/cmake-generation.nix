@@ -53,6 +53,9 @@ let
           relativeHeaders = map (file:
             lib.strings.removePrefix (builtins.toString src + "/") (builtins.toString file)
           ) cppHeaders;
+          
+          # Generate include directories for internal dependencies
+          depIncludeDirs = lib.concatStringsSep " " (map (dep: "${dep}/include") dependencies);
         in ''
           # Library: ${targetName}
           set(${target.name}_SOURCES
@@ -63,7 +66,7 @@ let
           )
           
           add_library(${target.name} ${libType} ''${${target.name}_SOURCES})
-          target_include_directories(${target.name} PUBLIC inc PRIVATE src)
+          target_include_directories(${target.name} PUBLIC inc PRIVATE src ${depIncludeDirs})
           
           if(${target.name}_HEADERS)
             set_target_properties(${target.name} PROPERTIES PUBLIC_HEADER "''${${target.name}_HEADERS}")
@@ -95,10 +98,13 @@ let
           additionalSources = if target ? sources then
             lib.concatStringsSep " " target.sources
           else "";
+          
+          # Generate include directories for internal dependencies
+          depIncludeDirs = lib.concatStringsSep " " (map (dep: "${dep}/include") dependencies);
         in ''
           # Executable: ${targetName}
           add_executable(${target.name} ${mainSource} ${additionalSources})
-          target_include_directories(${target.name} PRIVATE inc src)
+          target_include_directories(${target.name} PRIVATE inc src ${depIncludeDirs})
         '';
       
       # Generate dependency linking
