@@ -28,15 +28,39 @@ let
       generateLibraryTarget = targetName: target:
         let
           libType = if target.type == "static" then "STATIC" else "SHARED";
+          # Discover source files using Nix
+          sourceFiles = lib.filesystem.listFilesRecursive (src + "/src");
+          cppSources = builtins.filter (file: 
+            let ext = lib.strings.fileExtension (builtins.toString file);
+            in builtins.elem ext ["cpp" "cc" "cxx" "c++"]
+          ) sourceFiles;
+          relativeSources = map (file: 
+            lib.strings.removePrefix (builtins.toString src + "/") (builtins.toString file)
+          ) cppSources;
+          
+          # Discover header files using Nix  
+          headerFiles = lib.filesystem.listFilesRecursive (src + "/inc") ++ 
+                       lib.filesystem.listFilesRecursive (src + "/src");
+          cppHeaders = builtins.filter (file:
+            let ext = lib.strings.fileExtension (builtins.toString file);
+            in builtins.elem ext ["hpp" "hh" "hxx" "h++" "h"]
+          ) headerFiles;
+          relativeHeaders = map (file:
+            lib.strings.removePrefix (builtins.toString src + "/") (builtins.toString file)
+          ) cppHeaders;
         in ''
           # Library: ${targetName}
-          file(GLOB_RECURSE ${target.name}_SOURCES "src/*.cpp" "src/*.cc" "src/*.cxx" "src/*.c++")
-          file(GLOB_RECURSE ${target.name}_HEADERS "inc/*.hpp" "inc/*.hh" "inc/*.hxx" "inc/*.h++" "inc/*.h" "src/*.hpp" "src/*.hh" "src/*.hxx" "src/*.h++" "src/*.h")
+          set(${target.name}_SOURCES
+            ${lib.concatStringsSep "\n    " relativeSources}
+          )
+          set(${target.name}_HEADERS
+            ${lib.concatStringsSep "\n    " relativeHeaders}
+          )
           
           add_library(${target.name} ${libType} ''${${target.name}_SOURCES})
           target_include_directories(${target.name} PUBLIC inc PRIVATE src)
           
-          if(''${${target.name}_HEADERS})
+          if(${target.name}_HEADERS)
             set_target_properties(${target.name} PROPERTIES PUBLIC_HEADER "''${${target.name}_HEADERS}")
           endif()
         '';
@@ -99,7 +123,16 @@ let
         '') dependencies)}
         
         # External dependencies (nixpkgs packages)
-        ${lib.concatStringsSep "\n" (map (dep: "find_package(${dep.pname} REQUIRED)") externalDeps)}
+        ${lib.concatStringsSep "\n" (map (dep: 
+          let
+            # Handle both simple packages and detailed cmake configuration
+            cmakePackage = if builtins.isAttrs dep && dep ? cmake && dep.cmake ? package
+                          then dep.cmake.package
+                          else if builtins.isAttrs dep && dep ? pkg
+                          then dep.pkg.pname  # fallback to nixpkgs pname
+                          else dep.pname;     # simple package format
+          in "find_package(${cmakePackage} REQUIRED)"
+        ) externalDeps)}
         
         # FetchContent dependencies (escape hatch)
         ${lib.optionalString (fetchContentDeps != []) ''
@@ -122,8 +155,28 @@ let
         
         # Link external dependencies
         ${lib.concatStringsSep "\n" (lib.mapAttrsToList (targetName: target:
-          lib.concatStringsSep "\n" (map (dep: "target_link_libraries(${target.name} ${dep.pname})") externalDeps)
+          lib.concatStringsSep "\n" (map (dep: 
+            let
+              # Extract cmake targets or fallback to common patterns
+              cmakeTargets = if builtins.isAttrs dep && dep ? cmake && dep.cmake ? targets
+                            then dep.cmake.targets
+                            else if builtins.isAttrs dep && dep ? pkg
+                            then ["${dep.pkg.pname}::${dep.pkg.pname}"]  # common pattern
+                            else ["${dep.pname}::${dep.pname}"];         # simple package
+            in lib.concatStringsSep "\n" (map (cmakeTarget: 
+              "target_link_libraries(${target.name} ${cmakeTarget})"
+            ) cmakeTargets)
+          ) externalDeps)
         ) targets)}
+        
+        # Link executables to libraries within the same module
+        ${let
+          libraries = lib.filterAttrs (name: target: target.targetType == "library") targets;
+          executables = lib.filterAttrs (name: target: target.targetType == "executable") targets;
+          libraryNames = map (target: target.name) (lib.attrValues libraries);
+        in lib.concatStringsSep "\n" (lib.mapAttrsToList (execName: execTarget:
+          lib.concatStringsSep "\n" (map (libName: "target_link_libraries(${execTarget.name} ${libName})") libraryNames)
+        ) executables)}
       '';
       
     in pkgs.writeText "CMakeLists.txt" cmakeContent;

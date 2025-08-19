@@ -1,51 +1,33 @@
 #include "logger/logger.hpp"
 #include <iostream>
-#include <sstream>
 #include <fstream>
 #include <filesystem>
 #include <cassert>
+#include <format>
+#include <thread>
 
 using namespace logger;
 
-void test_logger_initialization() {
-    std::cout << "Testing logger initialization...\n";
+void test_logger_creation() {
+    std::cout << "Testing logger creation...\n";
     
-    // Test singleton behavior
-    Logger& logger1 = Logger::getInstance();
-    Logger& logger2 = Logger::getInstance();
-    assert(&logger1 == &logger2);
+    auto logger = CreateLogger(LogLevel::Info, "TestLogger");
+    assert(logger != nullptr);
+    assert(logger->name() == "TestLogger");
     
-    // Initialize with test file
-    const std::string testLogFile = "test_logger.log";
-    logger1.initialize("TestLogger", testLogFile);
-    
-    // Test that we can get the underlying spdlog logger
-    auto spdlogger = logger1.getSpdlogger();
-    assert(spdlogger != nullptr);
-    assert(spdlogger->name() == "TestLogger");
-    
-    // Clean up test file
-    if (std::filesystem::exists(testLogFile)) {
-        std::filesystem::remove(testLogFile);
-    }
-    
-    std::cout << "✓ Logger initialization tests passed\n";
+    std::cout << "✓ Logger creation tests passed\n";
 }
 
 void test_log_levels() {
     std::cout << "Testing log levels...\n";
     
-    Logger& logger = Logger::getInstance();
+    auto debugLogger = CreateLogger(LogLevel::Debug, "DebugLogger");
+    auto infoLogger = CreateLogger(LogLevel::Info, "InfoLogger");
+    auto warnLogger = CreateLogger(LogLevel::Warning, "WarnLogger");
     
-    // Test that we can set different log levels without crashing
-    logger.setLevel(LogLevel::Debug);
-    logger.setLevel(LogLevel::Info);
-    logger.setLevel(LogLevel::Warning);
-    logger.setLevel(LogLevel::Error);
-    logger.setLevel(LogLevel::Critical);
-    
-    // Reset to debug for other tests
-    logger.setLevel(LogLevel::Debug);
+    assert(debugLogger != nullptr);
+    assert(infoLogger != nullptr);
+    assert(warnLogger != nullptr);
     
     std::cout << "✓ Log level tests passed\n";
 }
@@ -53,24 +35,18 @@ void test_log_levels() {
 void test_log_messages() {
     std::cout << "Testing log messages...\n";
     
-    Logger& logger = Logger::getInstance();
+    auto logger = CreateLogger(LogLevel::Debug, "MessageTest");
     
     // Test basic logging methods
-    logger.debug("Test debug message");
-    logger.info("Test info message");
-    logger.warning("Test warning message");
-    logger.error("Test error message");
-    logger.critical("Test critical message");
+    logger->debug("Test debug message");
+    logger->info("Test info message");
+    logger->warn("Test warning message");
+    logger->error("Test error message");
+    logger->critical("Test critical message");
     
-    // Test macro logging
-    LOG_DEBUG("Test debug macro");
-    LOG_INFO("Test info macro");
-    LOG_WARNING("Test warning macro");
-    LOG_ERROR("Test error macro");
-    LOG_CRITICAL("Test critical macro");
-    
-    // Test simple logging (no complex formatting for simplicity)
-    LOG_INFO("Simple test message with value 123");
+    // Test formatted logging with std::format
+    int testValue = 123;
+    logger->info(std::format("Formatted test message: value={}", testValue));
     
     std::cout << "✓ Log message tests passed\n";
 }
@@ -78,50 +54,38 @@ void test_log_messages() {
 void test_file_logging() {
     std::cout << "Testing file logging...\n";
     
-    const std::string testLogFile = "file_test.log";
+    const std::string logFile = "FileTest.log";
     
     // Remove existing test file
-    if (std::filesystem::exists(testLogFile)) {
-        std::filesystem::remove(testLogFile);
+    if (std::filesystem::exists(logFile)) {
+        std::filesystem::remove(logFile);
     }
     
-    // Create a new logger instance for this test
-    Logger& logger = Logger::getInstance();
-    logger.initialize("FileTest", testLogFile);
+    // Create a logger
+    auto logger = CreateLogger(LogLevel::Info, "FileTest");
     
     // Log some messages
-    logger.info("Test message for file logging");
-    logger.error("Test error message for file logging");
+    logger->info("Test message for file logging");
+    logger->error("Test error message for file logging");
     
     // Give time for file to be written
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     // Check if file was created and contains our messages
-    assert(std::filesystem::exists(testLogFile));
+    assert(std::filesystem::exists(logFile));
     
-    std::ifstream logFile(testLogFile);
-    assert(logFile.is_open());
+    std::ifstream file(logFile);
+    assert(file.is_open());
     
-    std::string line;
-    bool foundInfoMessage = false;
-    bool foundErrorMessage = false;
-    
-    while (std::getline(logFile, line)) {
-        if (line.find("Test message for file logging") != std::string::npos) {
-            foundInfoMessage = true;
-        }
-        if (line.find("Test error message for file logging") != std::string::npos) {
-            foundErrorMessage = true;
-        }
-    }
-    
-    logFile.close();
+    std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+    file.close();
     
     // Clean up
-    std::filesystem::remove(testLogFile);
+    std::filesystem::remove(logFile);
     
-    assert(foundInfoMessage);
-    assert(foundErrorMessage);
+    assert(content.find("Test message for file logging") != std::string::npos);
+    assert(content.find("Test error message for file logging") != std::string::npos);
     
     std::cout << "✓ File logging tests passed\n";
 }
@@ -130,7 +94,7 @@ int main() {
     std::cout << "Running Logging Tests\n";
     std::cout << "====================\n";
     
-    test_logger_initialization();
+    test_logger_creation();
     test_log_levels();
     test_log_messages();
     test_file_logging();

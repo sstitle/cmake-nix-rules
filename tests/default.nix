@@ -39,9 +39,10 @@ let
   unitTests = import ./unit { inherit pkgs cmake-rules testUtils; };
   integrationTests = import ./integration { inherit pkgs cmake-rules testUtils; };
   dependencyTests = import ./dependency-resolution { inherit pkgs cmake-rules testUtils; };
+  externalDepsTests = import ./external-deps { inherit pkgs cmake-rules testUtils; };
   
   # Collect all tests
-  allTests = unitTests ++ integrationTests ++ dependencyTests;
+  allTests = unitTests ++ integrationTests ++ dependencyTests ++ externalDepsTests;
   
   # Run all tests and summarize results
   testResults = map (test: testUtils.runTest test.name test.fn) allTests;
@@ -96,5 +97,5 @@ in {
   '';
   
   # Individual test categories
-  inherit unitTests integrationTests dependencyTests;
+  inherit unitTests integrationTests dependencyTests externalDepsTests;
 }

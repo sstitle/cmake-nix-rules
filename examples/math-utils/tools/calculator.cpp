@@ -2,24 +2,26 @@
 #include "math-utils/matrix.hpp"
 #include "logger/logger.hpp"
 #include <iostream>
+#include <format>
 
 using namespace math_utils;
 
 int main() {
-    // Initialize logging
-    logger::Logger::getInstance().initialize("MathCalculator", "calculator.log");
-    LOG_INFO("Math Utils Calculator started");
+    // Create a simple logger
+    auto log = logger::CreateLogger(logger::LogLevel::Info, "MathCalculator");
+    
+    log->info("Math Utils Calculator started");
     
     std::cout << "Math Utils Calculator Demo\n";
     std::cout << "==========================\n\n";
     
     // Vector operations
-    LOG_INFO("Starting vector operations");
+    log->info("Starting vector operations");
     std::cout << "Vector Operations:\n";
     Vector3 v1(1.0, 2.0, 3.0);
     Vector3 v2(4.0, 5.0, 6.0);
     
-    LOG_DEBUG("Created vectors for demonstration");
+    log->debug("Created vectors for demonstration");
     
     std::cout << "v1 = " << v1 << "\n";
     std::cout << "v2 = " << v2 << "\n";
@@ -65,10 +67,10 @@ int main() {
         std::cout << "  λ2 = " << eigenvals(1) << "\n";
         std::cout << "  λ3 = " << eigenvals(2) << "\n";
     } catch (const std::exception& e) {
-        LOG_ERROR("Error computing eigenvalues: " + std::string(e.what()));
+        log->error(std::format("Error computing eigenvalues: {}", e.what()));
         std::cout << "Error computing eigenvalues: " << e.what() << "\n";
     }
     
-    LOG_INFO("Math Utils Calculator completed successfully");
+    log->info("Math Utils Calculator completed successfully");
     return 0;
 }

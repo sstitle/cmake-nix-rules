@@ -7,7 +7,10 @@ let
 in mkModule {
   name = "logging";
   dependencies = [];
-  externalDeps = [ pkgs.spdlog ];
+  externalDeps = [ 
+    pkgs.spdlog  # Simple format - CMake package name matches nixpkgs pname
+    pkgs.fmt     # Simple format - CMake package name matches nixpkgs pname
+  ];
   
   # Set source directory to current directory
   src = ./.;

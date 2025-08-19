@@ -31,12 +31,12 @@ std::shared_ptr<spdlog::logger> CreateLogger(LogLevel level, const std::string& 
         }
         
         logger->set_level(spdlog_level);
-        logger->flush_on(spdlog::level::error);
+        logger->flush_on(spdlog::level::err);
         
         // Register with spdlog
         spdlog::register_logger(logger);
         
-        logger->info("Logger '{}' initialized successfully", name);
+        logger->info("Logger '" + name + "' initialized successfully");
         return logger;
     }
     catch (const std::exception& ex) {

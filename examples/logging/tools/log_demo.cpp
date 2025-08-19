@@ -2,6 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <format>
+#include <iostream>
 
 using namespace logger;
 

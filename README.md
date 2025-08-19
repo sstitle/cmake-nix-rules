@@ -110,7 +110,10 @@ let
 in mkModule {
   name = "math-utils";
   dependencies = [ "logging" ];        # INTERNAL: Reference logging module by name
-  externalDeps = [ pkgs.eigen pkgs.boost ]; # EXTERNAL: Nixpkgs packages
+  externalDeps = [                     # EXTERNAL: Nixpkgs packages with CMake configuration
+    { pkg = pkgs.eigen; cmake.package = "Eigen3"; cmake.targets = ["Eigen3::Eigen"]; }
+    { pkg = pkgs.boost; cmake.package = "Boost"; cmake.targets = ["Boost::system"]; }
+  ];
   fetchContentDeps = [                 # ESCAPE HATCH: For packages not in nixpkgs
     {
       name = "custom-lib";
@@ -153,10 +156,24 @@ in mkModule {
 
 #### External Dependencies (`externalDeps`)
 - **Purpose**: Third-party libraries available in nixpkgs
-- **Format**: Array of nixpkgs package derivations
+- **Format**: Array of nixpkgs packages OR attribute sets with detailed CMake configuration
 - **Resolution**: Handled by Nix package manager
 - **CMake Integration**: Uses `find_package()` with package config files
-- **Example**: `externalDeps = [ pkgs.eigen pkgs.boost pkgs.spdlog ]`
+- **Formats**:
+  - **Simple**: `pkgs.someLib` (assumes CMake package name equals nixpkgs pname)
+  - **Detailed**: `{ pkg = pkgs.someLib; cmake.package = "CMakeName"; cmake.targets = ["Target1" "Target2"]; }`
+- **Example**: 
+  ```nix
+  externalDeps = [
+    # Detailed configuration for complex packages
+    { pkg = pkgs.eigen; cmake.package = "Eigen3"; cmake.targets = ["Eigen3::Eigen"]; }
+    { pkg = pkgs.boost; cmake.package = "Boost"; cmake.targets = ["Boost::system" "Boost::filesystem"]; }
+    
+    # Simple format when cmake package name matches nixpkgs pname
+    pkgs.spdlog  # CMake: find_package(spdlog), target: spdlog::spdlog
+    pkgs.fmt     # CMake: find_package(fmt), target: fmt::fmt
+  ];
+  ```
 
 #### FetchContent Dependencies (`fetchContentDeps`)
 - **Purpose**: Escape hatch for libraries not available in nixpkgs

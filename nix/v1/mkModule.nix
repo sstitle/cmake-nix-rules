@@ -57,7 +57,11 @@ in pkgs.stdenv.mkDerivation {
   ] ++ (if finalBuildConfig.generator == "ninja" then [ ninja ] else [])
     ++ (if finalBuildConfig.compiler == "clang" then [ clang ] else [ gcc ]);
   
-  buildInputs = externalDeps ++ internalDeps;
+  buildInputs = (map (dep: 
+    if builtins.isAttrs dep && dep ? pkg 
+    then dep.pkg 
+    else dep
+  ) externalDeps) ++ internalDeps;
   
   # Validation
   __validate = validateTargets targets;

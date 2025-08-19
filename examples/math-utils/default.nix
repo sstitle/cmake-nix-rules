@@ -7,7 +7,10 @@ let
 in mkModule {
   name = "math-utils";
   dependencies = [ "logging" ];     # Internal module dependencies (by name)
-  externalDeps = [ pkgs.eigen ];    # External nixpkgs dependencies
+  externalDeps = [ 
+    # Detailed format for Eigen since CMake package name is "Eigen3"
+    { pkg = pkgs.eigen; cmake.package = "Eigen3"; cmake.targets = ["Eigen3::Eigen"]; }
+  ];
   fetchContentDeps = [];            # CMake FetchContent dependencies (escape hatch)
   
   # Set source directory to current directory
