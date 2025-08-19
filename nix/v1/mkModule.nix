@@ -57,11 +57,29 @@ in pkgs.stdenv.mkDerivation {
   ] ++ (if finalBuildConfig.generator == "ninja" then [ ninja ] else [])
     ++ (if finalBuildConfig.compiler == "clang" then [ clang ] else [ gcc ]);
   
-  buildInputs = (map (dep: 
-    if builtins.isAttrs dep && dep ? pkg 
-    then dep.pkg 
-    else dep
-  ) externalDeps) ++ internalDeps;
+  buildInputs = let
+    # Extract external packages from direct external dependencies
+    directExternalPkgs = map (dep: 
+      if builtins.isAttrs dep && dep ? pkg 
+      then dep.pkg 
+      else dep
+    ) externalDeps;
+    
+    # Extract transitive external packages from internal dependencies
+    transitiveExternalPkgs = pkgs.lib.flatten (map (internalDep: 
+      if internalDep ? passthru && internalDep.passthru ? moduleExternalDeps then
+        map (dep: 
+          if builtins.isAttrs dep && dep ? pkg 
+          then dep.pkg 
+          else dep
+        ) internalDep.passthru.moduleExternalDeps
+      else []
+    ) internalDeps);
+    
+    # Combine all external packages and add internal dependencies
+    allExternalPkgs = directExternalPkgs ++ transitiveExternalPkgs;
+  in
+    allExternalPkgs ++ internalDeps;
   
   # Validation
   __validate = validateTargets targets;
@@ -128,6 +146,7 @@ in pkgs.stdenv.mkDerivation {
     moduleTargets = targets;
     moduleDependencies = dependencies;  # Original dependency names (strings)
     resolvedDependencies = internalDeps;  # Actual resolved derivations
+    moduleExternalDeps = externalDeps;  # External dependencies for transitive propagation
     moduleBuildConfig = finalBuildConfig;
   };
 }

@@ -129,4 +129,61 @@ in [
         else
           throw "FAIL: math-utils should have resolved internal dependencies, got ${toString numDeps} deps. Module keys: ${builtins.concatStringsSep ", " (builtins.attrNames resolvedModules)}";
   }
+
+  {
+    name = "transitive-external-dependencies-cmake-generation";
+    fn = _:
+      # Test that verifies CMake includes transitive external dependencies from internal modules
+      let
+        # Mock logging module with spdlog external dependency
+        mockLoggingDep = pkgs.stdenv.mkDerivation {
+          name = "mock-logging";
+          dontUnpack = true;
+          installPhase = ''
+            mkdir -p $out/include/logger
+            echo 'class Logger {};' > $out/include/logger/logger.hpp
+          '';
+          passthru = {
+            moduleName = "logging";
+            # Mock external dependencies that logging module has
+            moduleExternalDeps = [
+              { pkg = { pname = "spdlog"; }; cmake.package = "spdlog"; cmake.targets = ["spdlog::spdlog"]; }
+              { pkg = { pname = "fmt"; }; cmake.package = "fmt"; cmake.targets = ["fmt::fmt"]; }
+            ];
+          };
+        };
+
+        # Generate CMake for math-utils with internal dependency on logging
+        targets = {
+          calculator = cmake-rules.mkExecutable { 
+            name = "calculator"; 
+            entrypoint = "tools/calculator.cpp";
+          };
+        };
+        
+        cmakeContent = cmake-rules.generateModuleCMakeLists {
+          name = "math-utils";
+          inherit targets;
+          dependencies = [ mockLoggingDep ];  # Internal dependency with external deps
+          externalDeps = [
+            { pkg = { pname = "eigen"; }; cmake.package = "Eigen3"; cmake.targets = ["Eigen3::Eigen"]; }
+          ];
+          fetchContentDeps = [];
+          buildConfig = cmake-rules.defaultBuildConfig;
+          src = builtins.path { path = ../../examples/math-utils; name = "math-utils-src"; };
+        };
+        
+        content = builtins.readFile cmakeContent;
+        
+        # Check that CMake includes transitive external dependencies from logging module
+        hasSpdlog = builtins.match ".*find_package\\(spdlog REQUIRED\\).*" content != null;
+        hasFmt = builtins.match ".*find_package\\(fmt REQUIRED\\).*" content != null;
+        hasEigen = builtins.match ".*find_package\\(Eigen3 REQUIRED\\).*" content != null;
+      in
+        # This test should FAIL initially until we implement transitive dependency propagation
+        assert hasEigen || throw "CMake should include direct external dependencies (Eigen3)";
+        assert hasSpdlog || throw "CMake should include transitive external dependencies (spdlog from logging)";
+        assert hasFmt || throw "CMake should include transitive external dependencies (fmt from logging)";
+        "PASS: transitive external dependencies are included in CMake generation";
+  }
 ]

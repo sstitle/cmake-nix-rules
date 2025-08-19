@@ -153,17 +153,32 @@ let
           )
         '') dependencies)}
         
-        # External dependencies (nixpkgs packages)
-        ${lib.concatStringsSep "\n" (map (dep: 
-          let
-            # Handle both simple packages and detailed cmake configuration
-            cmakePackage = if builtins.isAttrs dep && dep ? cmake && dep.cmake ? package
-                          then dep.cmake.package
-                          else if builtins.isAttrs dep && dep ? pkg
-                          then dep.pkg.pname  # fallback to nixpkgs pname
-                          else dep.pname;     # simple package format
-          in "find_package(${cmakePackage} REQUIRED)"
-        ) externalDeps)}
+        # Collect transitive external dependencies from internal dependencies
+        ${let
+          # Extract external dependencies from internal dependencies
+          transitiveExternalDeps = lib.flatten (map (dep: 
+            if dep ? passthru && dep.passthru ? moduleExternalDeps then
+              dep.passthru.moduleExternalDeps
+            else []
+          ) dependencies);
+          
+          # Combine direct and transitive external dependencies
+          allExternalDeps = externalDeps ++ transitiveExternalDeps;
+          
+          # Remove duplicates by cmake package name
+          uniqueExternalDeps = lib.unique allExternalDeps;
+        in
+          lib.concatStringsSep "\n" (map (dep: 
+            let
+              # Handle both simple packages and detailed cmake configuration
+              cmakePackage = if builtins.isAttrs dep && dep ? cmake && dep.cmake ? package
+                            then dep.cmake.package
+                            else if builtins.isAttrs dep && dep ? pkg
+                            then dep.pkg.pname  # fallback to nixpkgs pname
+                            else dep.pname;     # simple package format
+            in "find_package(${cmakePackage} REQUIRED)"
+          ) uniqueExternalDeps)
+        }
         
         # FetchContent dependencies (escape hatch)
         ${lib.optionalString (fetchContentDeps != []) ''
@@ -184,21 +199,36 @@ let
         # Link dependencies
         ${generateDependencies targets}
         
-        # Link external dependencies
-        ${lib.concatStringsSep "\n" (lib.mapAttrsToList (targetName: target:
-          lib.concatStringsSep "\n" (map (dep: 
-            let
-              # Extract cmake targets or fallback to common patterns
-              cmakeTargets = if builtins.isAttrs dep && dep ? cmake && dep.cmake ? targets
-                            then dep.cmake.targets
-                            else if builtins.isAttrs dep && dep ? pkg
-                            then ["${dep.pkg.pname}::${dep.pkg.pname}"]  # common pattern
-                            else ["${dep.pname}::${dep.pname}"];         # simple package
-            in lib.concatStringsSep "\n" (map (cmakeTarget: 
-              "target_link_libraries(${target.name} ${cmakeTarget})"
-            ) cmakeTargets)
-          ) externalDeps)
-        ) targets)}
+        # Link external dependencies (direct + transitive)
+        ${let
+          # Extract external dependencies from internal dependencies (same as above)
+          transitiveExternalDeps = lib.flatten (map (dep: 
+            if dep ? passthru && dep.passthru ? moduleExternalDeps then
+              dep.passthru.moduleExternalDeps
+            else []
+          ) dependencies);
+          
+          # Combine direct and transitive external dependencies
+          allExternalDeps = externalDeps ++ transitiveExternalDeps;
+          
+          # Remove duplicates by cmake package name
+          uniqueExternalDeps = lib.unique allExternalDeps;
+        in
+          lib.concatStringsSep "\n" (lib.mapAttrsToList (targetName: target:
+            lib.concatStringsSep "\n" (map (dep: 
+              let
+                # Extract cmake targets or fallback to common patterns
+                cmakeTargets = if builtins.isAttrs dep && dep ? cmake && dep.cmake ? targets
+                              then dep.cmake.targets
+                              else if builtins.isAttrs dep && dep ? pkg
+                              then ["${dep.pkg.pname}::${dep.pkg.pname}"]  # common pattern
+                              else ["${dep.pname}::${dep.pname}"];         # simple package
+              in lib.concatStringsSep "\n" (map (cmakeTarget: 
+                "target_link_libraries(${target.name} ${cmakeTarget})"
+              ) cmakeTargets)
+            ) uniqueExternalDeps)
+          ) targets)
+        }
         
         # Link executables to libraries within the same module
         ${let

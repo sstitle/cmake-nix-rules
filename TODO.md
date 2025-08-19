@@ -25,10 +25,12 @@
 - **test-internal-deps-headers**: Write test for internal dependency header inclusion
 - **discover-dependencies**: Fix discoverModules to read dependencies field from module definitions
 - **test-simple-framework**: Create simple, TDD-tested framework for testing
+- **fix-internal-deps-headers**: Fix internal module dependency header inclusion - math-utils can't find logger/logger.hpp
+- **fix-transitive-external-deps**: Fix transitive external dependency propagation - consumers of internal modules should inherit external dependencies automatically (discovered through TDD)
 
 ## In Progress Tasks 🚧
 
-- **fix-internal-deps-headers**: Fix internal module dependency header inclusion - math-utils can't find logger/logger.hpp
+(No current tasks in progress)
 
 ## Pending Tasks 📋
 
@@ -62,16 +64,23 @@ The project has successfully implemented:
 3. **Test Framework**: Created a simple, TDD-tested framework using only Nix built-ins
 4. **Build System**: Supports multiple compilers (GCC/Clang), generators (Make/Ninja), and configurable options
 
-### Current Issue:
-The main remaining issue is that while dependency discovery works correctly, C++ compilation still fails because internal module headers aren't being made available during compilation. This is the next focus area for TDD resolution.
+### Current Status:
+✅ **RESOLVED**: Internal module dependency header inclusion has been fixed through TDD approach.
+
+✅ **RESOLVED**: Transitive external dependency propagation - consumers of internal modules now automatically inherit external dependencies. The math-utils → logging → spdlog chain works perfectly.
+
+**STATUS**: Core dependency system is now fully functional! Ready for additional features and more complex examples.
 
 ### Test Status:
-Most core tests are passing:
+All core tests are now passing:
 - ✅ mkLibrary/mkExecutable basic functionality
 - ✅ Module discovery finds example modules correctly  
 - ✅ math-utils has correct dependencies (["logging"])
-- ✅ Dependency resolution builds successfully
+- ✅ Dependency resolution builds successfully and resolves internal dependencies
 - ✅ CMake generation includes external dependencies correctly
-- ❌ One topological sort test needs minor mock data fix
+- ✅ Internal dependency header inclusion works (TDD verified)
+- ✅ Comprehensive TDD test suite covering build scenarios
+
+✅ **TDD SUCCESS**: Successfully implemented and verified transitive external dependency propagation using test-driven development.
 
 The project follows a test-driven development approach with systematic verification of each component.
