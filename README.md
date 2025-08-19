@@ -8,8 +8,13 @@ A set of Nix functions that generate CMakeLists.txt and *.cmake files for C++ CM
 ### Design Principles
 
 - **Incremental Builds**: Each module is a separate Nix derivation with deterministic hashing based on source files, dependencies, and build configuration
-- **Dependency Management**: Internal module dependencies are explicit; external dependencies come from Nix packages with CMake FetchContent as an escape hatch
+- **Dependency Management**: 
+  - **Internal Dependencies**: Module-to-module dependencies within the monorepo, referenced by name and resolved at flake evaluation time
+  - **External Dependencies**: Third-party packages from nixpkgs (eigen, boost, spdlog, etc.) with native CMake integration
+  - **FetchContent Dependencies**: Escape hatch for dependencies not available in nixpkgs, handled via CMake FetchContent
 - **Build Configuration**: Structured inputs with explicitly enumerated options for reproducible builds across different configurations
+- **Build System Flexibility**: Configurable compiler (gcc/clang), generator (ninja/make), with future support for alternative build systems (meson)
+- **Versioned API**: Version-namespaced implementation (v1, v2, etc.) to enable breaking changes while maintaining backward compatibility
 - **Convention over Configuration**: Standardized directory layout with implicit include paths, but explicit executable entrypoints
 
 ### Conventions
@@ -57,9 +62,9 @@ Primary functions
 # Module definition (in default.nix)
 mkModule = {
   name,                         # string: module name
-  dependencies ? [],            # [derivation]: other modules this depends on
-  externalDeps ? [],           # [package]: Nix packages (boost, eigen, etc.)
-  fetchContentDeps ? [],       # [attrset]: CMake FetchContent dependencies
+  dependencies ? [],            # [string]: INTERNAL module names (e.g., ["logging", "math-utils"])
+  externalDeps ? [],           # [package]: EXTERNAL nixpkgs packages (e.g., [pkgs.eigen, pkgs.boost])
+  fetchContentDeps ? [],       # [attrset]: CMake FetchContent dependencies for packages not in nixpkgs
   buildConfig ? {},            # attrset: build configuration overrides
   targets                      # attrset: libraries and executables to build
 }: derivation
@@ -84,10 +89,13 @@ buildConfig = {
   buildType ? "debug",         # enum: "debug" | "release" | "relWithDebInfo" | "minSizeRel"
   compiler ? "gcc",            # enum: "gcc" | "clang" | "msvc"
   cppStandard ? "20",         # enum: "17" | "20" | "23"
+  generator ? "ninja",         # enum: "ninja" | "make" | "xcode" (default: ninja for performance)
+  buildSystem ? "cmake",       # enum: "cmake" | "meson" (future: v1 is cmake-only)
   features ? {                # optional feature flags
     sanitizers ? [],          # [enum]: "address" | "undefined" | "thread"
     lto ? false,             # bool: link-time optimization
     static ? false           # bool: static linking
+    parallelJobs ? "auto"    # int | "auto": parallel build jobs (default: auto-detect)
   }
 }
 ```
@@ -96,11 +104,20 @@ buildConfig = {
 
 ```nix
 # math-utils/default.nix
-{ mkModule, mkLibrary, mkExecutable, vectorModule }:
-mkModule {
+{ pkgs, cmake-nix-rules }:
+let
+  inherit (cmake-nix-rules) mkModule mkLibrary mkExecutable;
+in mkModule {
   name = "math-utils";
-  dependencies = [ vectorModule ];
-  externalDeps = [ pkgs.boost ];
+  dependencies = [ "logging" ];        # INTERNAL: Reference logging module by name
+  externalDeps = [ pkgs.eigen pkgs.boost ]; # EXTERNAL: Nixpkgs packages
+  fetchContentDeps = [                 # ESCAPE HATCH: For packages not in nixpkgs
+    {
+      name = "custom-lib";
+      url = "https://github.com/user/custom-lib.git";
+      tag = "v1.0.0";
+    }
+  ];
   
   targets = {
     # Primary library (auto-includes src/ and inc/math-utils/)
@@ -123,6 +140,60 @@ mkModule {
     };
   };
 }
+```
+
+### Dependency Types Explained
+
+#### Internal Dependencies (`dependencies`)
+- **Purpose**: Module-to-module dependencies within your monorepo
+- **Format**: Array of strings representing module names
+- **Resolution**: Resolved automatically by the flake's module discovery system
+- **CMake Integration**: Creates imported targets for linking
+- **Example**: `dependencies = [ "logging", "math-utils" ]`
+
+#### External Dependencies (`externalDeps`)
+- **Purpose**: Third-party libraries available in nixpkgs
+- **Format**: Array of nixpkgs package derivations
+- **Resolution**: Handled by Nix package manager
+- **CMake Integration**: Uses `find_package()` with package config files
+- **Example**: `externalDeps = [ pkgs.eigen pkgs.boost pkgs.spdlog ]`
+
+#### FetchContent Dependencies (`fetchContentDeps`)
+- **Purpose**: Escape hatch for libraries not available in nixpkgs
+- **Format**: Array of attribute sets with `name`, `url`, `tag`/`commit`
+- **Resolution**: Downloaded and built via CMake FetchContent during build
+- **CMake Integration**: Uses `FetchContent_Declare()` and `FetchContent_MakeAvailable()`
+- **Example**: 
+  ```nix
+  fetchContentDeps = [
+    {
+      name = "nlohmann-json";
+      url = "https://github.com/nlohmann/json.git";
+      tag = "v3.11.2";
+    }
+  ];
+  ```
+
+### API Versioning
+
+cmake-nix-rules uses a versioned API to enable future extensibility while maintaining backward compatibility:
+
+#### Current Version: v1 (CMake-only)
+- **Location**: `nix/v1/`
+- **Build System**: CMake only
+- **Generators**: Ninja (default), Make
+- **Compilers**: GCC (default), Clang
+- **Stability**: Stable API, no breaking changes
+
+#### Future Versions
+- **v2**: May include Meson support, enhanced dependency resolution
+- **v3**: Potential support for other build systems, advanced caching
+
+#### Version Selection
+```nix
+# In your flake.nix
+cmake-nix-rules.lib.v1  # Current stable API
+cmake-nix-rules.lib.v2  # Future: enhanced features (when available)
 ```
 
 ## Implementation Specification
